@@ -225,6 +225,8 @@ namespace SCSDB.Database
 
         public object Value { get; set; }
 
+        public object[] ValuesIn { get; set; }
+
         public bool HasValueType { get; private set; }
 
         private SqlDbType _ValueType;
@@ -278,6 +280,13 @@ namespace SCSDB.Database
         {
             Name = name;
             Value = value;
+        }
+
+        public SqlColumn(string name, object[] valuesIn)
+        {
+            Name = name;
+            ValuesIn = valuesIn;
+            Operator = SqlOperators.In;
         }
 
         public SqlColumn(string name, int value)
@@ -387,6 +396,40 @@ namespace SCSDB.Database
         }
     }
 
+    public class Clause<T>
+    {
+        public static Clause<T> Builter { get { return new Clause<T>(); } }
+
+        private Clause<T> _Instance;
+        public Clause() { _Instance = this; }
+
+        public Where<T, TField> Where<TField>(Expression<Func<T, TField>> field, TField value) { return new Where<T, TField>(field, value); }
+    }
+
+    public class WhereIn : Where
+    {
+        public WhereIn(string name, params object[] value)
+            : base(name, value)
+        {
+        }
+    }
+
+    public class WhereIn<T, TField> : Where
+    {
+        public WhereIn(Expression<Func<T, TField[]>> field, TField[] value)
+            : base((field.Body as MemberExpression).Member.Name, value as object[])
+        {
+        }
+    }
+
+    public class Where<T, TField> : Where
+    {
+        public Where(Expression<Func<T, TField>> field, TField value)
+            : base((field.Body as MemberExpression).Member.Name, value)
+        {
+        }
+    }
+
     public class Where : SqlColumn
     {
         public Where()
@@ -394,6 +437,11 @@ namespace SCSDB.Database
         }
 
         public Where(string name, object value)
+            : base(name, value)
+        {
+        }
+
+        public Where(string name, params object[] value)
             : base(name, value)
         {
         }
@@ -805,6 +853,10 @@ namespace SCSDB.Database
 
         public T TargetData { get { return _data; } }
 
+        private Clause<T> _Builter = new Clause<T>();
+
+        public Clause<T> Builter { get { return _Builter; } }
+
         public DatabaseTable(string TableName) : base(TableName) { }
 
         public SqlColumn Where<TField>(Expression<Func<T, TField>> field, object value)
@@ -860,6 +912,11 @@ namespace SCSDB.Database
         new public T SelectFirst(string[] columns, SqlColumn[] where, string AndOrOpt = "AND")
         {
             return DatabaseController.SelectFirst<T>(table: TableName, columns: columns, where: where);
+        }
+
+        public virtual TField SelectSingle<TField>(Expression<Func<T, TField>> column, params SqlColumn[] where)
+        {
+            return DatabaseController.SelectSingle<TField>(table: TableName, column: (column.Body as MemberExpression).Member.Name, where: where);
         }
 
         new public List<T> Select()
@@ -929,7 +986,7 @@ namespace SCSDB.Database
 
         public int InsertInto(T data, string idColmnName, bool includeNullValues, string[] exclude, params SqlColumn[] where)
         {
-            return DatabaseController.InsertInto(table: TableName, idColmnName:idColmnName, values: SqlColumn.FromObject(data, includeNullValues, exclude).ToArray(), where: where);
+            return DatabaseController.InsertInto(table: TableName, idColmnName: idColmnName, values: SqlColumn.FromObject(data, includeNullValues, exclude).ToArray(), where: where);
         }
 
         public bool Update(T data, params SqlColumn[] where)
@@ -1839,7 +1896,7 @@ END
                         return Enum.Parse(type, value as string, true);
                     }
 
-                ToIntage:
+                    ToIntage:
                     if (IsIntager(value is string ? asInt : value))
                         return Enum.ToObject(type, value);
 

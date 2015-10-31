@@ -7,8 +7,8 @@
     <ProjectGuid>{F8E2DE49-4087-43CE-A1A2-2134EE8387BA}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>SCSDB</RootNamespace>
-    <AssemblyName>SCSDB</AssemblyName>
+    <RootNamespace>SCSDB.Database</RootNamespace>
+    <AssemblyName>SCSDB.Database</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -48,9 +48,20 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DatabaseController.cs" />
+    <Compile Include="Attributes\SqlColumntAttribute.cs" />
+    <Compile Include="Attributes\SqlTabeleClassAttribute.cs" />
+    <Compile Include="Core\Clause.cs" />
+    <Compile Include="Core\DatabaseController.cs" />
+    <Compile Include="Core\DatabaseStaticController.cs" />
+    <Compile Include="Core\DatabaseTable.cs" />
+    <Compile Include="Core\Where.cs" />
+    <Compile Include="Enums\SqlWhereOperators.cs" />
+    <Compile Include="Enums\SqlOperators.cs" />
+    <Compile Include="Enums\SqlTableCreteFlags.cs" />
     <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Core\SqlColumn.cs" />
+    <Compile Include="Utils\SqlCommandDumper.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

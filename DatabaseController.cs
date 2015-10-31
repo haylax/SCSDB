@@ -853,9 +853,11 @@ namespace SCSDB.Database
 
         public T TargetData { get { return _data; } }
 
+        public T GetTargetData() { return new T(); }
+
         private Clause<T> _Builter = new Clause<T>();
 
-        public Clause<T> Builter { get { return _Builter; } }
+        public Clause<T> Builder { get { return _Builter; } }
 
         public DatabaseTable(string TableName) : base(TableName) { }
 
@@ -977,6 +979,11 @@ namespace SCSDB.Database
         public int InsertInto(T data, bool includeNullValues, string[] exclude, params SqlColumn[] where)
         {
             return DatabaseController.InsertInto(table: TableName, values: SqlColumn.FromObject(data, includeNullValues, exclude).ToArray(), where: where);
+        }
+
+        public int InsertInto(T data, string idColmnName, params SqlColumn[] where)
+        {
+            return DatabaseController.InsertInto(table: TableName, idColmnName: idColmnName, values: SqlColumn.FromObject(data, new[] { idColmnName }).ToArray(), where: where);
         }
 
         public int InsertInto(T data, string idColmnName, string[] exclude, params SqlColumn[] where)
@@ -1896,7 +1903,7 @@ END
                         return Enum.Parse(type, value as string, true);
                     }
 
-                    ToIntage:
+                ToIntage:
                     if (IsIntager(value is string ? asInt : value))
                         return Enum.ToObject(type, value);
 

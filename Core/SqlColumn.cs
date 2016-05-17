@@ -110,7 +110,6 @@ namespace SCSDB.Database.Core
                                 values.Add(new SqlColumn(properties[j].Name, val == null ? DBNull.Value : val, DatabaseController.GetDBType(properties[j].PropertyType == typeof(object) ? val.GetType() : properties[j].PropertyType)));
                 }
             } while (++i < l);
-            //TODO: Dispose target object
             return values;
         }
 
@@ -118,11 +117,12 @@ namespace SCSDB.Database.Core
 
         private SqlWhereOperators _WhereOperator;
 
+        private SqlOperators _Operator;
+
+
         public string Name { get; set; }
 
         public object Value { get; set; }
-
-        public object[] ValuesIn { get; set; }
 
         public bool HasValueType { get; private set; }
 
@@ -149,7 +149,18 @@ namespace SCSDB.Database.Core
             }
         }
 
-        public SqlOperators Operator { get; set; }
+        public bool HasOperator { get; private set; }
+
+        public SqlOperators Operator
+        {
+            get { return _Operator; }
+            set
+            {
+                HasOperator = true;
+                _Operator = value;
+            }
+        }
+
 
         public bool HasWhereOperator { get; private set; }
 
@@ -173,16 +184,24 @@ namespace SCSDB.Database.Core
         {
         }
 
+
         public SqlColumn(string name, object value)
         {
             Name = name;
             Value = value;
         }
 
-        public SqlColumn(string name, object[] valuesIn)
+        public SqlColumn(string name, IEnumerable<int> value)
         {
             Name = name;
-            ValuesIn = valuesIn;
+            Value = value;
+            Operator = SqlOperators.In;
+        }
+
+        public SqlColumn(string name, params int[] value)
+        {
+            Name = name;
+            Value = value;
             Operator = SqlOperators.In;
         }
 
@@ -265,7 +284,7 @@ namespace SCSDB.Database.Core
 
         public override string ToString()
         {
-            return "Name: " + Name + ", Value: " + Convert.ToString(Value);
+            return "Name: " + Name + (HasOperator ? ", Opr: " + Operator.ToString() : "") + ", Value: " + (Value is IEnumerable<int> ? "[" + string.Join(",", Value as IEnumerable<int>) + "]" : Convert.ToString(Value));
         }
 
         bool disposed = false;

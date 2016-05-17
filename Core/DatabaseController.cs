@@ -10,14 +10,48 @@ using System.Data.SqlClient;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 
 namespace SCSDB.Database.Core
 {
+    public class DisReader : IDisposable
+    {
+        private Action _action;
+
+        public SqlDataReader Reader;
+
+        public DisReader(SqlDataReader reader, Action dispose)
+        {
+            Reader = reader;
+            _action = dispose;
+        }
+
+        #region IDisposable Support
+        private bool disposedValue = false;
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    if (_action != null) _action();
+                    _action = null;
+                }
+                disposedValue = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+        #endregion
+    }
 
     public class DatabaseController
     {
-        private static string[] Operators = new string[] { "=", "!=", ">", "<", ">=", "<=", "BETWEEN", "LIKE", "IN" };
+        private static string[] ProblemColumnNames = new string[] { "to", "from" };
+        private static string[] Operators = new string[] { "=", "!=", ">", "<", ">=", "<=", "IN", "LIKE", "BETWEEN" };
         private static string[] AfterOperators = new string[] { "AND", "OR" };
         private static string[] ValueTypeSizeList = new string[] { SqlDbType.Binary.ToString(), SqlDbType.Char.ToString(), SqlDbType.NChar.ToString(), SqlDbType.NVarChar.ToString(), SqlDbType.VarBinary.ToString(), SqlDbType.VarChar.ToString() };
         private static Dictionary<string, Type> TabelClasses = new Dictionary<string, Type>();
@@ -148,67 +182,67 @@ END
         public static T SelectLast<T>(string table, string orderColumnName)
             where T : new()
         {
-            var r = ReaderToList<T>(SelectLast(table, orderColumnName, null, null, "AND"), true);
+            var r = ReaderToList<T>(SelectLast(table, orderColumnName, null, null, "AND"));
             return r != null ? r[0] : default(T);
         }
 
         public static T SelectLast<T>(string table, string orderColumnName, params SqlColumn[] where)
             where T : new()
         {
-            var r = ReaderToList<T>(SelectLast(table, orderColumnName, null, where, "AND"), true);
+            var r = ReaderToList<T>(SelectLast(table, orderColumnName, null, where, "AND"));
             return r != null ? r[0] : default(T);
         }
 
         public static T SelectLast<T>(string table, string orderColumnName, string[] columns, SqlColumn[] where, string AndOrOpt = "AND")
            where T : new()
         {
-            var r = ReaderToList<T>(SelectLast(table, orderColumnName, columns, where, AndOrOpt), true);
+            var r = ReaderToList<T>(SelectLast(table, orderColumnName, columns, where, AndOrOpt));
             return r != null ? r[0] : default(T);
         }
 
         public static T SelectFirst<T>(string table)
             where T : new()
         {
-            var r = ReaderToList<T>(SelectFirst(table, null, null, AndOrOpt: "AND"), true);
+            var r = ReaderToList<T>(SelectFirst(table, null, null, AndOrOpt: "AND"));
             return r != null ? r[0] : default(T);
         }
 
         public static T SelectFirst<T>(string table, params SqlColumn[] where)
             where T : new()
         {
-            var r = ReaderToList<T>(SelectFirst(table, null, where, "AND"), true);
+            var r = ReaderToList<T>(SelectFirst(table, null, where, "AND"));
             return r != null ? r[0] : default(T);
         }
 
         public static T SelectFirst<T>(string table, string[] columns, SqlColumn[] where, string AndOrOpt = "AND")
            where T : new()
         {
-            var r = ReaderToList<T>(SelectFirst(table, columns, where, AndOrOpt), true);
+            var r = ReaderToList<T>(SelectFirst(table, columns, where, AndOrOpt));
             return r != null ? r[0] : default(T);
         }
 
         public static List<T> Select<T>(string table)
             where T : new()
         {
-            return ReaderToList<T>(Select(table, null, null, AndOrOpt: "AND"), true);
+            return ReaderToList<T>(Select(table, null, null, AndOrOpt: "AND"));
         }
 
         public static List<T> Select<T>(string table, params SqlColumn[] where)
             where T : new()
         {
-            return ReaderToList<T>(Select(table, null, where, "AND"), true);
+            return ReaderToList<T>(Select(table, null, where, "AND"));
         }
 
         public static List<T> Select<T>(string table, params string[] columns)
             where T : new()
         {
-            return ReaderToList<T>(Select(table, columns, null), true);
+            return ReaderToList<T>(Select(table, columns, null));
         }
 
         public static List<T> Select<T>(string table, string[] columns, SqlColumn[] where, string AndOrOpt = "AND")
             where T : new()
         {
-            return ReaderToList<T>(Select(table, columns, where, AndOrOpt), true);
+            return ReaderToList<T>(Select(table, columns, where, AndOrOpt));
         }
 
         public static bool HasRow(string table, params SqlColumn[] where)
@@ -384,7 +418,7 @@ END
         public static bool CreateTable(string table, params SqlColumn[] columns)
         {
             var c = columns[0].Name + " " + columns[0].ValueType;
-            if (Array.IndexOf<string>(ValueTypeSizeList, columns[0].ValueType.ToString()) != -1)
+            if (Array.IndexOf(ValueTypeSizeList, columns[0].ValueType.ToString()) != -1)
                 c += "(" + (columns[0].HasValueTypeSize && columns[0].ValueTypeSize != SqlColumn.MAX_VALUE_LIMIT ? columns[0].ValueTypeSize.ToString() : "MAX") + ")";
             var f = columns[0].TableCreteFlags;
             if ((f & SqlTableCreteFlags.IdentityIncrement) == SqlTableCreteFlags.IdentityIncrement)
@@ -393,12 +427,11 @@ END
                 c += " PRIMARY KEY NOT NULL";
             else if ((f & SqlTableCreteFlags.NotNull) == SqlTableCreteFlags.NotNull)
                 c += " NOT NULL";
-            //columns[0].Dispose();
             for (int i = 1; i < columns.Length; i++)
             {
                 f = columns[i].TableCreteFlags;
                 c += ", " + columns[i].Name + " " + columns[i].ValueType;
-                if (Array.IndexOf<string>(ValueTypeSizeList, columns[i].ValueType.ToString()) != -1)
+                if (Array.IndexOf(ValueTypeSizeList, columns[i].ValueType.ToString()) != -1)
                     c += "(" + (columns[i].HasValueTypeSize && columns[i].ValueTypeSize != SqlColumn.MAX_VALUE_LIMIT ? columns[i].ValueTypeSize.ToString() : "MAX") + ") ";
                 if ((f & SqlTableCreteFlags.IdentityIncrement) == SqlTableCreteFlags.IdentityIncrement)
                     c += " IDENTITY(1,1) PRIMARY KEY NOT NULL";
@@ -406,7 +439,6 @@ END
                     c += " PRIMARY KEY NOT NULL";
                 else if ((f & SqlTableCreteFlags.NotNull) == SqlTableCreteFlags.NotNull)
                     c += " NOT NULL";
-                //columns[i].Dispose();
             }
             string command = "IF NOT EXISTS (SELECT * FROM sysobjects WHERE id = object_id(N'" + table + "') ";
             command += "AND OBJECTPROPERTY(id, N'IsUserTable') = 1) ";
@@ -468,16 +500,14 @@ END
             var parameters = new SqlColumn[values.Length];
             if (values.Length > 0)
             {
-                var tn = " (" + values[0].Name;
+                var tn = " (" + ControlProblemName(values[0].Name);
                 var vn = "(@" + values[0].Name;
                 parameters[0] = values[0].Clone("@" + values[0].Name);
-                //values[0].Dispose();
                 for (int i = 1; i < values.Length; i++)
                 {
-                    tn += ", " + values[i].Name;
+                    tn += ", " + ControlProblemName(values[i].Name);
                     vn += ", @" + values[i].Name;
                     parameters[i] = values[i].Clone("@" + values[i].Name);
-                    //values[i].Dispose();
                 }
                 tn += ")";
                 vn += ")";
@@ -579,7 +609,6 @@ END
             {
                 con.Open();
                 SetCommandParameters(command, parameters);
-                SetQueryToProcedure(sqlCommand, command);
                 result = command.ExecuteScalar();
             }
             return result;
@@ -609,7 +638,7 @@ END
         public static List<T> ExecuteList<T>(string sqlCommand, params SqlColumn[] parameters)
             where T : new()
         {
-            return ReaderToList<T>(ExecuteReader(sqlCommand, parameters: parameters), true);
+            return ReaderToList<T>(ExecuteReader(sqlCommand, parameters: parameters));
         }
 
         ///
@@ -618,7 +647,7 @@ END
         ///     and builds a System.Data.SqlClient.SqlDataReader.
         ///
         /// Returns:
-        ///     A System.Data.SqlClient.SqlDataReader object.
+        ///     A System.Data.DataTable object.
         ///
         /// Exceptions:
         ///   System.Data.SqlClient.SqlException:
@@ -631,15 +660,57 @@ END
         ///     requires an open System.Data.SqlClient.SqlConnection.
         public static DataTable ExecuteReader(string sqlCommand, params SqlColumn[] parameters)
         {
-            using (SqlConnection con = new SqlConnection(ConnectionString))
-            using (SqlCommand command = new SqlCommand(sqlCommand, con))
+            return ExecuteReader(sqlCommand, true, parameters);
+        }
+
+        ///
+        /// Summary:
+        ///     Sends the System.Data.SqlClient.SqlCommand.CommandText to the System.Data.SqlClient.SqlCommand.Connection
+        ///     and builds a System.Data.SqlClient.SqlDataReader.
+        ///
+        /// Returns:
+        ///     A Reader as System.Data.SqlClient.SqlDataReader object and disposable referance.
+        ///
+        /// Exceptions:
+        ///   System.Data.SqlClient.SqlException:
+        ///     An exception occurred while executing the command against a locked row. This
+        ///     exception is not generated when you are using Microsoft .NET Framework version
+        ///     1.0.
+        ///
+        ///   System.InvalidOperationException:
+        ///     The current state of the connection is closed. System.Data.SqlClient.SqlCommand.ExecuteReader()
+        ///     requires an open System.Data.SqlClient.SqlConnection.
+        public static DisReader ExecuteReaderForMulti(string sqlCommand, params SqlColumn[] parameters)
+        {
+            return ExecuteReader(sqlCommand, false, parameters);
+        }
+
+        private static dynamic ExecuteReader(string sqlCommand, bool readerAsDataTable, SqlColumn[] parameters)
+        {
+            if (readerAsDataTable)
             {
+                using (SqlConnection con = new SqlConnection(ConnectionString))
+                using (SqlCommand command = new SqlCommand(sqlCommand, con))
+                {
+                    con.Open();
+                    SetCommandParameters(command, parameters);
+                    var reader = command.ExecuteReader();
+                    var dt = new DataTable();
+                    dt.Load(reader);
+                    return dt;
+                }
+            }
+            else
+            {
+                SqlConnection con = new SqlConnection(ConnectionString);
+                SqlCommand command = new SqlCommand(sqlCommand, con);
                 con.Open();
                 SetCommandParameters(command, parameters);
-                var reader = command.ExecuteReader();
-                var dt = new DataTable();
-                dt.Load(reader);
-                return dt;
+                return new DisReader(command.ExecuteReader(), () =>
+                {
+                    con.Dispose();
+                    command.Dispose();
+                });
             }
         }
 
@@ -695,9 +766,14 @@ END
         private static void SetCommandParameters(SqlCommand command, SqlColumn[] parameters)
         {
             if (parameters.Length > 0)
+            {
                 foreach (var val in parameters)
                 {
-                    if (val.HasValueType)
+                    if (val.Value as IEnumerable<int> != null)
+                    {
+                        command.Parameters.AddWithValue(val.Name, string.Join(",", val.Value as IEnumerable<int>));
+                    }
+                    else if (val.HasValueType)
                     {
                         var p = new SqlParameter(val.Name, val.Value);
                         if (val.Value != DBNull.Value) p.SqlDbType = val.ValueType;
@@ -706,8 +782,8 @@ END
                     }
                     else
                         command.Parameters.AddWithValue(val.Name, val.Value ?? DBNull.Value);
-                    //val.Dispose();
                 }
+            }
             SetQueryToProcedure(command.CommandText, command);
         }
 
@@ -717,7 +793,6 @@ END
             {
                 lock (QueryStrings)
                 {
-                    //sqlCommand = GetSHA1(sqlCommand);
                     if (ConvertQueryToProcedure && !QueryStrings.ContainsKey(sqlCommand))
                     {
                         QueryStrings.Add(sqlCommand, new QueryStringInfo() { Query = SqlCommandDumper.GetCommandText(command), ExecuteCount = 1 });
@@ -729,16 +804,6 @@ END
                 }
             }
             catch (Exception) { }
-        }
-
-        private static string GetSHA1(string text)
-        {
-            using (System.Security.Cryptography.HashAlgorithm algorithm = System.Security.Cryptography.SHA1.Create())
-            {
-                StringBuilder sb = new StringBuilder();
-                foreach (byte b in algorithm.ComputeHash(Encoding.UTF8.GetBytes(text))) sb.Append(b.ToString("X2"));
-                return sb.ToString();
-            }
         }
 
         public static SqlDbType GetDBType(Type theType)
@@ -753,7 +818,6 @@ END
             }
             else
             {
-                //try{
                 if (theType.IsGenericType && theType.Name.Contains("Nullable"))
                 {
                     param.DbType = (DbType)tc.ConvertFrom(theType.GetGenericArguments()[0].Name);
@@ -766,8 +830,6 @@ END
                 {
                     param.DbType = (DbType)tc.ConvertFrom(theType.Name);
                 }
-                //}catch{}
-                //TODO: Test type and select DB Type
             }
             return param.SqlDbType;
         }
@@ -786,71 +848,85 @@ END
         public static List<T> ReaderToList<T>(DataTable datas)
             where T : new()
         {
-            return ReaderToList<T>(datas, true);
-        }
-
-        public static List<T> ReaderToList<T>(DataTable datas, bool disposeDataTable)
-            where T : new()
-        {
             List<T> result = null;
             using (var reader = datas.CreateDataReader())
             {
-                if (reader == null || reader.IsClosed) return null;
-                IEnumerable<MemberInfo> infos = null;
-                bool isKeyValuePair = false;
-                Type pairValueType = null;
-                while (reader.Read())
+                result = ReaderToList<T>(reader);
+            }
+            return result;
+        }
+
+        public static List<T> ReaderToList<T>(SqlDataReader datas)
+            where T : new()
+        {
+            return _ReaderToList<T>(datas);
+        }
+
+        public static List<T> ReaderToList<T>(DataTableReader reader)
+            where T : new()
+        {
+            return _ReaderToList<T>(reader);
+        }
+
+        private static List<T> _ReaderToList<T>(dynamic reader)
+            where T : new()
+        {
+            List<T> result = null;
+            if (reader == null || reader.IsClosed) return null;
+            IEnumerable<MemberInfo> infos = null;
+            bool isKeyValuePair = false;
+            Type pairValueType = null;
+            while (reader.Read())
+            {
+                if (infos == null && !isKeyValuePair)
                 {
-                    if (infos == null && !isKeyValuePair)
+                    var ty = typeof(T);
+                    if (ty.IsGenericType && ty.GetInterface(typeof(IDictionary).FullName) != null)
                     {
-                        var ty = typeof(T);
-                        if (ty.IsGenericType && ty.GetInterface(typeof(IDictionary).FullName) != null)
-                        {
-                            isKeyValuePair = true;
-                            pairValueType = ty.GetGenericArguments()[1];
-                        }
-                        else
-                        {
-                            infos = ty.GetMembers(BindingFlags.Public | BindingFlags.Instance).Where(a => a.MemberType == MemberTypes.Field || (a.MemberType == MemberTypes.Property && (a as PropertyInfo).CanWrite));
-                            if (infos.Count() == 0) return null;
-                        }
-                        result = new List<T>();
+                        isKeyValuePair = true;
+                        pairValueType = ty.GetGenericArguments()[1];
                     }
-                    var item = new T();
-                    for (int i = 0; i < reader.FieldCount; i++)
+                    else
                     {
-                        var fName = reader.GetName(i);
-                        if (isKeyValuePair)
+                        infos = ty.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.SetField | BindingFlags.SetProperty);//.Where(a => a.MemberType == MemberTypes.Field || (a.MemberType == MemberTypes.Property && (a as PropertyInfo).CanWrite));
+                        if (infos.Count() == 0) return null;
+                    }
+                    result = new List<T>();
+                }
+                var item = new T();
+                var count = reader.FieldCount;
+                for (int i = 0; i < count; i++)
+                {
+                    var fName = reader.GetName(i);
+                    if (isKeyValuePair)
+                    {
+                        var v = reader.GetValue(i);
+                        (item as IDictionary).Add(fName, ConvertFromDBVal(v, pairValueType));
+                    }
+                    else
+                    {
+                        var n = infos.FirstOrDefault(t => t.Name.Equals(fName, StringComparison.OrdinalIgnoreCase));
+                        if (n != null)
                         {
                             var v = reader.GetValue(i);
-                            (item as IDictionary).Add(fName, ConvertFromDBVal(v, pairValueType));
-                        }
-                        else
-                        {
-                            var n = infos.FirstOrDefault(t => t.Name.ToLower(CultureInfo.GetCultureInfo("en")) == fName.ToLower(CultureInfo.GetCultureInfo("en")));
-                            if (n != null)
+                            var f = n as FieldInfo;
+                            if (f != null)
                             {
-                                var v = reader.GetValue(i);
-                                var f = n as FieldInfo;
-                                if (f != null)
-                                {
-                                    f.SetValue(item, ConvertFromDBVal(v, f.FieldType));
-                                    continue;
-                                }
-                                var p = n as PropertyInfo;
-                                if (p != null)
-                                {
-                                    p.SetValue(item, ConvertFromDBVal(v, p.PropertyType), null);
-                                    continue;
-                                }
+                                f.SetValue(item, ConvertFromDBVal(v, f.FieldType));
+                                continue;
                             }
-
+                            var p = n as PropertyInfo;
+                            if (p != null)
+                            {
+                                p.SetValue(item, ConvertFromDBVal(v, p.PropertyType), null);
+                                continue;
+                            }
                         }
+
                     }
-                    result.Add(item);
                 }
+                result.Add(item);
             }
-            //if (disposeDataTable) datas.Dispose();
             return result;
         }
 
@@ -890,7 +966,7 @@ END
                         return Enum.Parse(type, value as string, true);
                     }
 
-                ToIntage:
+                    ToIntage:
                     if (IsIntager(value is string ? asInt : value))
                         return Enum.ToObject(type, value);
 
@@ -948,14 +1024,12 @@ END
                             item.ElementAt(i).Name = i + "_" + item.Key;
 
                 w = " WHERE ";
-                w += where[0].Name + " " + Operators[(int)where[0].Operator] + " @W_" + where[0].Name;
+                w += where[0].Name + " " + Operators[(int)where[0].Operator] + " " + GetOperatorValue(where[0].Operator, "@W_" + where[0].Name);
                 parameters[0] = where[0].Clone("@W_" + where[0].Name);
-                //if (dispose) where[0].Dispose();
                 for (int i = 1; i < where.Length; i++)
                 {
-                    w += " " + (where[i - 1].HasWhereOperator ? where[i - 1].WhereOperator.ToString() : AndOrOpt) + " " + where[i].Name + " " + Operators[(int)where[i].Operator] + " @W_" + where[i].Name;
+                    w += " " + (where[i - 1].HasWhereOperator ? where[i - 1].WhereOperator.ToString() : AndOrOpt) + " " + where[i].Name + " " + Operators[(int)where[i].Operator] + " " + GetOperatorValue(where[i].Operator, "@W_" + where[i].Name);
                     parameters[i] = where[i].Clone("@W_" + where[i].Name);
-                    //if (dispose) where[i].Dispose();
                 }
             }
             return w;
@@ -992,12 +1066,12 @@ END
                         for (int i = 1; i < item.Count(); i++)
                             item.ElementAt(i).Name = i + "_" + item.Key;
 
-                v += " SET " + values[0].Name + "=@V_" + values[0].Name;
+                v += " SET " + ControlProblemName(values[0].Name) + "=@V_" + values[0].Name;
                 parameters[l] = values[0].Clone("@V_" + values[0].Name);
                 //if (dispose) values[0].Dispose();
                 for (int i = 1; i < values.Length; i++)
                 {
-                    v += ", " + values[i].Name + "=@V_" + values[i].Name;
+                    v += ", " + ControlProblemName(values[i].Name) + "=@V_" + values[i].Name;
                     parameters[l + i] = values[i].Clone("@V_" + values[i].Name);
                     //if (dispose) values[i].Dispose();
                 }
@@ -1009,16 +1083,40 @@ END
             return v;
         }
 
+        private static string ControlProblemName(string name)
+        {
+            return ProblemColumnNames.Contains(name.ToLower()) ? "[" + name + "]" : name;
+        }
+
+        private static string GetOperatorValue(SqlOperators opt, string name)
+        {
+            switch (opt)
+            {
+                case SqlOperators.Equal:
+                case SqlOperators.NotEqual:
+                case SqlOperators.Greater:
+                case SqlOperators.Less:
+                case SqlOperators.GreaterEqual:
+                case SqlOperators.LessEqual:
+                default:
+                    return name;
+                case SqlOperators.In:
+                    return "(SELECT * FROM Split(',', " + name + "))";
+                case SqlOperators.Like:
+                    return "'%'+" + name + "+'%'";
+            }
+        }
+
         private static bool IsIntager(object value)
         {
-            return value is SByte
-                || value is Int16
-                || value is Int32
-                || value is Int64
-                || value is Byte
-                || value is UInt16
-                || value is UInt32
-                || value is UInt64;
+            return value is sbyte
+                || value is short
+                || value is int
+                || value is long
+                || value is byte
+                || value is ushort
+                || value is uint
+                || value is ulong;
         }
 
         private static bool IsNumber(object value)

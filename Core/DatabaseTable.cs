@@ -1,6 +1,8 @@
-﻿using System;
+﻿using SCSDB.Database.Enums;
+using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Linq.Expressions;
 
@@ -32,32 +34,6 @@ namespace SCSDB.Database.Core
         {
             var dt = DatabaseController.Select(table: TableName, columns: new string[] { column }, where: where);
             if (dt.Rows.Count > 0)
-            {
-                return dt.Select().Select(t => t[column]).ToList();
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        public virtual List<T> SelectSingleList<T>(string column, string columnNameOrderByDesc, params SqlColumn[] where)
-        {
-            var dt = DatabaseController.Select(table: TableName, columns: new string[] { column }, where: where);
-            if (dt.Rows.Count > 0)
-            {
-                return dt.Select().Select<DataRow, T>(t => DatabaseController.ConvertFromDBVal<T>(t[column], typeof(T))).ToList();
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        public virtual List<object> SelectSingleList(string column, string columnNameOrderByDesc, params SqlColumn[] where)
-        {
-            var dt = DatabaseController.Select(table: TableName, columns: new string[] { column }, where: where);
-            if (dt.Rows.Count > 0 && !dt.Rows[0].IsNull(0))
             {
                 return dt.Select().Select(t => t[column]).ToList();
             }
@@ -368,21 +344,75 @@ namespace SCSDB.Database.Core
     public class DatabaseTable<T> : DatabaseTable where
         T : new()
     {
-        private T _data = new T();
+        private T _data;
 
-        public T TargetData { get { return _data; } }
+        public T TargetData { get { if (_data == null) _data = new T(); return _data; } }
 
         public T GetTargetData() { return new T(); }
 
-        private Clause<T> _Builter = new Clause<T>();
+        private Clause<T> _Builder;
 
-        public Clause<T> Builder { get { return _Builter; } }
+        public Clause<T> Builder { get { if (_Builder == null) _Builder = new Clause<T>();  return _Builder; } }
 
         public DatabaseTable(string TableName) : base(TableName) { }
 
-        public SqlColumn Where<TField>(Expression<Func<T, TField>> field, object value)
+        public List<T> ReaderToList(SqlDataReader reader)
+        {
+            return DatabaseController.ReaderToList<T>(reader);
+        }
+
+        public SqlColumn Where<TField>(Expression<Func<T, TField>> field, TField value)
         {
             return SqlColumn.Create((field.Body as MemberExpression).Member.Name, value);
+        }
+
+        public SqlColumn Where<TField>(Expression<Func<T, TField>> field, SqlOperators optr, TField value)
+        {
+            return SqlColumn.Create((field.Body as MemberExpression).Member.Name, optr, value);
+        }
+
+        //public SqlColumn Where<TField>(Expression<Func<T, TField>> field, object value)
+        //{
+        //    return SqlColumn.Create((field.Body as MemberExpression).Member.Name, value);
+        //}
+
+        //public SqlColumn Where<TField>(Expression<Func<T, TField>> field, SqlOperators optr, object value)
+        //{
+        //    return SqlColumn.Create((field.Body as MemberExpression).Member.Name, optr, value);
+        //}
+
+        public virtual List<TField> SelectSingleList<TField>(Expression<Func<T, TField>> column, params SqlColumn[] where)
+        {
+            var columnName = (column.Body as MemberExpression).Member.Name;
+            var dt = DatabaseController.Select(table: TableName, columns: new string[] { columnName }, where: where);
+            if (dt.Rows.Count > 0)
+            {
+                return dt.Select().Select(t => DatabaseController.ConvertFromDBVal<TField>(t[columnName], typeof(TField))).ToList();
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public T SelectLast<TField>(Expression<Func<T, TField>> orderColumnName)
+        {
+            return DatabaseController.SelectLast<T>(TableName, (orderColumnName.Body as MemberExpression).Member.Name);
+        }
+
+        public T SelectLast<TField>(Expression<Func<T, TField>> orderColumnName, string[] columns, params SqlColumn[] where)
+        {
+            return DatabaseController.SelectLast<T>(TableName, orderColumnName: (orderColumnName.Body as MemberExpression).Member.Name, columns: columns, where: where);
+        }
+
+        public T SelectLast<TField>(Expression<Func<T, TField>> orderColumnName, params SqlColumn[] where)
+        {
+            return DatabaseController.SelectLast<T>(table: TableName, orderColumnName: (orderColumnName.Body as MemberExpression).Member.Name, where: where);
+        }
+
+        public T SelectLast<TField>(Expression<Func<T, TField>> orderColumnName, string[] columns, SqlColumn[] where, string AndOrOpt = "AND")
+        {
+            return DatabaseController.SelectLast<T>(table: TableName, orderColumnName: (orderColumnName.Body as MemberExpression).Member.Name, columns: columns, where: where);
         }
 
         public T SelectLast(string orderColumnName)
@@ -455,6 +485,14 @@ namespace SCSDB.Database.Core
             return DatabaseController.Select<T>(table: TableName, columns: columns);
         }
 
+        public List<T> Select(params Expression<Func<T, object>>[] columns)
+        {
+            var columnsNames = new string[columns.Length];
+            for (int i = 0; i < columns.Length; i++)
+                columnsNames[i] = (columns[i].Body as MemberExpression).Member.Name;
+            return DatabaseController.Select<T>(table: TableName, columns: columnsNames);
+        }
+
         new public List<T> Select(string[] columns, params SqlColumn[] where)
         {
             return DatabaseController.Select<T>(TableName, columns, where);
@@ -467,7 +505,7 @@ namespace SCSDB.Database.Core
 
         public List<T> ExecuteList(string sqlCommand, params SqlColumn[] parameters)
         {
-            return DatabaseController.ReaderToList<T>(DatabaseController.ExecuteReader(sqlCommand, parameters: parameters), true);
+            return DatabaseController.ReaderToList<T>(DatabaseController.ExecuteReader(sqlCommand, parameters: parameters));
         }
 
         public int InsertInto(T data)
@@ -500,7 +538,7 @@ namespace SCSDB.Database.Core
             return DatabaseController.InsertInto(table: TableName, values: SqlColumn.FromObject(data, includeNullValues, exclude).ToArray(), where: where);
         }
 
-        public int InsertInto(T data, string idColmnName, params SqlColumn[] where)
+        public int InsertInto(T data, string idColmnName, SqlColumn[] where)
         {
             return DatabaseController.InsertInto(table: TableName, idColmnName: idColmnName, values: SqlColumn.FromObject(data, new[] { idColmnName }).ToArray(), where: where);
         }

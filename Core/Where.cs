@@ -2,28 +2,28 @@
 using SCSDB.Database.Enums;
 using System.Linq.Expressions;
 using System.Data;
+using System.Collections.Generic;
 
 namespace SCSDB.Database.Core
 {
-    public class WhereIn : Where
-    {
-        public WhereIn(string name, params object[] value)
-            : base(name, value)
-        {
-        }
-    }
-
-    public class WhereIn<T, TField> : Where
-    {
-        public WhereIn(Expression<Func<T, TField[]>> field, TField[] value)
-            : base((field.Body as MemberExpression).Member.Name, value as object[])
-        {
-        }
-    }
-
     public class Where<T, TField> : Where
     {
         public Where(Expression<Func<T, TField>> field, TField value)
+            : base((field.Body as MemberExpression).Member.Name, value)
+        {
+        }
+
+        public Where(Expression<Func<T, TField>> field, SqlOperators Optr, TField value)
+            : base((field.Body as MemberExpression).Member.Name, Optr, value)
+        {
+        }
+
+        public Where(Expression<Func<T, TField>> field, params int[] value)
+            : base((field.Body as MemberExpression).Member.Name, value: value)
+        {
+        }
+
+        public Where(Expression<Func<T, TField>> field, IEnumerable<int> value)
             : base((field.Body as MemberExpression).Member.Name, value)
         {
         }
@@ -40,8 +40,14 @@ namespace SCSDB.Database.Core
         {
         }
 
-        public Where(string name, params object[] value)
+        public Where(string name, IEnumerable<int> value)
             : base(name, value)
+        {
+        }
+
+
+        public Where(string name, params int[] value)
+            : base(name, value: value)
         {
         }
 

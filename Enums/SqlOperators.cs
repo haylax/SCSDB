@@ -8,8 +8,8 @@
         Less = 3,
         GreaterEqual = 4,
         LessEqual = 5,
-        In = 6
-        //Like = 7,
+        In = 6,
+        Like = 7
         //Between = 8,
     }
 }

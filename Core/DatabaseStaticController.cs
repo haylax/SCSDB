@@ -1,5 +1,6 @@
 ﻿using System.Data;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 
 namespace SCSDB.Database.Core
 {
@@ -9,6 +10,13 @@ namespace SCSDB.Database.Core
             where T : new()
         {
             return DatabaseController.ReaderToList<T>(datas);
+        }
+
+        public static DataTable GetDataTable(this SqlDataReader reader)
+        {
+            var dt = new DataTable();
+            dt.Load(reader);
+            return dt;
         }
     }
 }

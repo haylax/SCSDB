@@ -352,7 +352,7 @@ namespace SCSDB.Database.Core
 
         private Clause<T> _Builder;
 
-        public Clause<T> Builder { get { if (_Builder == null) _Builder = new Clause<T>();  return _Builder; } }
+        public Clause<T> Builder { get { if (_Builder == null) _Builder = new Clause<T>(); return _Builder; } }
 
         public DatabaseTable(string TableName) : base(TableName) { }
 
@@ -361,25 +361,25 @@ namespace SCSDB.Database.Core
             return DatabaseController.ReaderToList<T>(reader);
         }
 
-        public SqlColumn Where<TField>(Expression<Func<T, TField>> field, TField value)
+        public Where<T, TField> Where<TField>(Expression<Func<T, TField>> field, TField value)
         {
-            return SqlColumn.Create((field.Body as MemberExpression).Member.Name, value);
+            return new Where<T, TField>(field, value);
         }
 
-        public SqlColumn Where<TField>(Expression<Func<T, TField>> field, SqlOperators optr, TField value)
+        public Where<T, TField> Where<TField>(Expression<Func<T, TField>> field, SqlOperators optr, TField value)
         {
-            return SqlColumn.Create((field.Body as MemberExpression).Member.Name, optr, value);
+            return new Where<T, TField>(field, optr, value);
         }
 
-        //public SqlColumn Where<TField>(Expression<Func<T, TField>> field, object value)
-        //{
-        //    return SqlColumn.Create((field.Body as MemberExpression).Member.Name, value);
-        //}
+        public Where<T, TField> Where<TField>(Expression<Func<T, TField>> field, params int[] value)
+        {
+            return new Where<T, TField>(field, value: value);
+        }
 
-        //public SqlColumn Where<TField>(Expression<Func<T, TField>> field, SqlOperators optr, object value)
-        //{
-        //    return SqlColumn.Create((field.Body as MemberExpression).Member.Name, optr, value);
-        //}
+        public Where<T, TField> Where<TField>(Expression<Func<T, TField>> field, IEnumerable<int> value)
+        {
+            return new Where<T, TField>(field, value);
+        }
 
         public virtual List<TField> SelectSingleList<TField>(Expression<Func<T, TField>> column, params SqlColumn[] where)
         {
@@ -468,6 +468,11 @@ namespace SCSDB.Database.Core
         public virtual TField SelectSingle<TField>(Expression<Func<T, TField>> column, params SqlColumn[] where)
         {
             return DatabaseController.SelectSingle<TField>(table: TableName, column: (column.Body as MemberExpression).Member.Name, where: where);
+        }
+
+        public virtual TField SelectSingle<TField>(Expression<Func<T, TField>> column, string columnNameOrderByDesc, params SqlColumn[] where)
+        {
+            return base.SelectSingle<TField>(column: (column.Body as MemberExpression).Member.Name, columnNameOrderByDesc: columnNameOrderByDesc, where: where);
         }
 
         new public List<T> Select()

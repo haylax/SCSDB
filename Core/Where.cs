@@ -76,6 +76,11 @@ namespace SCSDB.Database.Core
         {
         }
 
+        public Where(string name, SqlOperators Optr, int value)
+            : base(name, Optr, value)
+        {
+        }
+
         public Where(string name, SqlOperators Optr, object value, SqlWhereOperators whereOperator)
             : base(name, Optr, value, whereOperator)
         {

@@ -59,6 +59,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Attributes\SqlColumntAttribute.cs" />
+    <Compile Include="Attributes\SqlStringEnum.cs" />
     <Compile Include="Attributes\SqlTabeleClassAttribute.cs" />
     <Compile Include="Core\Clause.cs" />
     <Compile Include="Core\DatabaseController.cs" />

@@ -567,6 +567,8 @@ END
 
         public static bool Update(string table, SqlColumn[] values, SqlColumn[] where, string AndOrOpt, out int RowEffected, bool dispose)
         {
+            if (where == null || where.Length == 0) throw new Exception("Must have where value!");
+            if (values == null || values.Length == 0) throw new Exception("Must have values!");
             var parameters = new SqlColumn[where.Length + values.Length];
             var w = GetWhereString(where, AndOrOpt, ref parameters, dispose);
             var v = GetUpdateString(values, ref parameters, dispose);
@@ -577,6 +579,8 @@ END
 
         public static T UpdateGetID<T>(string table, string idColmnName, SqlColumn[] values, SqlColumn[] where, string AndOrOpt, out int RowEffected, bool dispose)
         {
+            if (where == null || where.Length == 0) throw new Exception("Must have where value!");
+            if (values == null || values.Length == 0) throw new Exception("Must have values!");
             var parameters = new SqlColumn[where.Length + values.Length];
             var w = GetWhereString(where, AndOrOpt, ref parameters, dispose);
             var v = GetUpdateString(values, ref parameters, dispose);
@@ -695,9 +699,7 @@ END
                     con.Open();
                     SetCommandParameters(command, parameters);
                     var reader = command.ExecuteReader();
-                    var dt = new DataTable();
-                    dt.Load(reader);
-                    return dt;
+                    return reader.GetDataTable();
                 }
             }
             else
@@ -808,10 +810,20 @@ END
 
         public static SqlDbType GetDBType(Type theType)
         {
-            SqlParameter param;
-            System.ComponentModel.TypeConverter tc;
-            param = new SqlParameter();
-            tc = System.ComponentModel.TypeDescriptor.GetConverter(param.DbType);
+            if (theType.IsEnum)
+            {
+                var art = theType.GetCustomAttributes(typeof(SqlStringEnum), true);
+                if (art != null && art.Length > 0)
+                {
+                    theType = typeof(string);
+                }
+                else
+                {
+                    theType = theType.GetEnumUnderlyingType();
+                }
+            }
+            SqlParameter param = new SqlParameter();
+            var tc = System.ComponentModel.TypeDescriptor.GetConverter(param.DbType);
             if (tc.CanConvertFrom(theType))
             {
                 param.DbType = (DbType)tc.ConvertFrom(theType.Name);

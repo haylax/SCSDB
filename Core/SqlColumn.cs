@@ -21,6 +21,11 @@ namespace SCSDB.Database.Core
             return new SqlColumn(name, value);
         }
 
+        public static SqlColumn Create(string name, IEnumerable<int> value)
+        {
+            return new SqlColumn(name, value);
+        }
+
         public static SqlColumn Create(string name, object value, SqlWhereOperators whereOperator)
         {
             return new SqlColumn(name, value, whereOperator);
@@ -233,6 +238,13 @@ namespace SCSDB.Database.Core
         }
 
         public SqlColumn(string name, SqlOperators Optr, object value)
+        {
+            Name = name;
+            Value = value;
+            Operator = Optr;
+        }
+
+        public SqlColumn(string name, SqlOperators Optr, int value)
         {
             Name = name;
             Value = value;

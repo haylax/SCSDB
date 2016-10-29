@@ -222,9 +222,9 @@ namespace SCSDB.Database.Core
             return DatabaseController.Delete(TableName, where, AndOrOpt);
         }
 
-        public virtual int InsertInto<T>(string table, T data)
+        public virtual int InsertInto<T>(T data)
         {
-            return DatabaseController.InsertInto(table, SqlColumn.FromObject(data).ToArray());
+            return DatabaseController.InsertInto(TableName, SqlColumn.FromObject(data).ToArray());
         }
 
         public virtual int InsertInto<T>(T data, params string[] exclude)
@@ -463,6 +463,11 @@ namespace SCSDB.Database.Core
         new public T SelectFirst(string[] columns, SqlColumn[] where, string AndOrOpt = "AND")
         {
             return DatabaseController.SelectFirst<T>(table: TableName, columns: columns, where: where);
+        }
+
+        public T SelectFirst<TField>(Expression<Func<T, TField>> whereKey, TField whereValue)
+        {
+            return DatabaseController.SelectFirst<T>(TableName, new SqlColumn((whereKey.Body as MemberExpression).Member.Name, whereValue));
         }
 
         public virtual TField SelectSingle<TField>(Expression<Func<T, TField>> column, params SqlColumn[] where)

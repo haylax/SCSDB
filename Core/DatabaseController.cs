@@ -1029,19 +1029,20 @@ END
                 if (parameters == null) parameters = new SqlColumn[where.Length];
                 else if (parameters.Length < where.Length) Array.Resize(ref parameters, where.Length);
 
+                var sw = new Dictionary<SqlColumn, string>();
                 var g = where.GroupBy(t => t.Name);
                 if (g.Any(t => t.Count() > 1))
                     foreach (var item in g)
                         for (int i = 1; i < item.Count(); i++)
-                            item.ElementAt(i).Name = i + "_" + item.Key;
+                            sw.Add(item.ElementAt(i), i.ToString());
 
                 w = " WHERE ";
                 w += where[0].Name + " " + Operators[(int)where[0].Operator] + " " + GetOperatorValue(where[0].Operator, "@W_" + where[0].Name);
                 parameters[0] = where[0].Clone("@W_" + where[0].Name);
                 for (int i = 1; i < where.Length; i++)
                 {
-                    w += " " + (where[i - 1].HasWhereOperator ? where[i - 1].WhereOperator.ToString() : AndOrOpt) + " " + where[i].Name + " " + Operators[(int)where[i].Operator] + " " + GetOperatorValue(where[i].Operator, "@W_" + where[i].Name);
-                    parameters[i] = where[i].Clone("@W_" + where[i].Name);
+                    w += " " + (where[i - 1].HasWhereOperator ? where[i - 1].WhereOperator.ToString() : AndOrOpt) + " " + where[i].Name + " " + Operators[(int)where[i].Operator] + " " + GetOperatorValue(where[i].Operator, "@W_" + (sw.ContainsKey(where[i]) ? sw[where[i]] + "_" : "") + where[i].Name);
+                    parameters[i] = where[i].Clone("@W_" + (sw.ContainsKey(where[i]) ? sw[where[i]] + "_" : "") + where[i].Name);
                 }
             }
             return w;

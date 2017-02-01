@@ -383,7 +383,7 @@ namespace SCSDB.Database.Core
 
         public virtual List<TField> SelectSingleList<TField>(Expression<Func<T, TField>> column, params SqlColumn[] where)
         {
-            var columnName = (column.Body as MemberExpression).Member.Name;
+            var columnName = column.GetExpressionName();
             var dt = DatabaseController.Select(table: TableName, columns: new string[] { columnName }, where: where);
             if (dt.Rows.Count > 0)
             {
@@ -397,22 +397,22 @@ namespace SCSDB.Database.Core
 
         public T SelectLast<TField>(Expression<Func<T, TField>> orderColumnName)
         {
-            return DatabaseController.SelectLast<T>(TableName, (orderColumnName.Body as MemberExpression).Member.Name);
+            return DatabaseController.SelectLast<T>(TableName, orderColumnName.GetExpressionName());
         }
 
         public T SelectLast<TField>(Expression<Func<T, TField>> orderColumnName, string[] columns, params SqlColumn[] where)
         {
-            return DatabaseController.SelectLast<T>(TableName, orderColumnName: (orderColumnName.Body as MemberExpression).Member.Name, columns: columns, where: where);
+            return DatabaseController.SelectLast<T>(TableName, orderColumnName: orderColumnName.GetExpressionName(), columns: columns, where: where);
         }
 
         public T SelectLast<TField>(Expression<Func<T, TField>> orderColumnName, params SqlColumn[] where)
         {
-            return DatabaseController.SelectLast<T>(table: TableName, orderColumnName: (orderColumnName.Body as MemberExpression).Member.Name, where: where);
+            return DatabaseController.SelectLast<T>(table: TableName, orderColumnName: orderColumnName.GetExpressionName(), where: where);
         }
 
         public T SelectLast<TField>(Expression<Func<T, TField>> orderColumnName, string[] columns, SqlColumn[] where, string AndOrOpt = "AND")
         {
-            return DatabaseController.SelectLast<T>(table: TableName, orderColumnName: (orderColumnName.Body as MemberExpression).Member.Name, columns: columns, where: where);
+            return DatabaseController.SelectLast<T>(table: TableName, orderColumnName: orderColumnName.GetExpressionName(), columns: columns, where: where);
         }
 
         public T SelectLast(string orderColumnName)
@@ -467,17 +467,17 @@ namespace SCSDB.Database.Core
 
         public T SelectFirst<TField>(Expression<Func<T, TField>> whereKey, TField whereValue)
         {
-            return DatabaseController.SelectFirst<T>(TableName, new SqlColumn((whereKey.Body as MemberExpression).Member.Name, whereValue));
+            return DatabaseController.SelectFirst<T>(TableName, new SqlColumn(whereKey.GetExpressionName(), whereValue));
         }
 
         public virtual TField SelectSingle<TField>(Expression<Func<T, TField>> column, params SqlColumn[] where)
         {
-            return DatabaseController.SelectSingle<TField>(table: TableName, column: (column.Body as MemberExpression).Member.Name, where: where);
+            return DatabaseController.SelectSingle<TField>(table: TableName, column: column.GetExpressionName(), where: where);
         }
 
         public virtual TField SelectSingle<TField>(Expression<Func<T, TField>> column, string columnNameOrderByDesc, params SqlColumn[] where)
         {
-            return base.SelectSingle<TField>(column: (column.Body as MemberExpression).Member.Name, columnNameOrderByDesc: columnNameOrderByDesc, where: where);
+            return base.SelectSingle<TField>(column: column.GetExpressionName(), columnNameOrderByDesc: columnNameOrderByDesc, where: where);
         }
 
         new public List<T> Select()
@@ -499,7 +499,7 @@ namespace SCSDB.Database.Core
         {
             var columnsNames = new string[columns.Length];
             for (int i = 0; i < columns.Length; i++)
-                columnsNames[i] = (columns[i].Body as MemberExpression).Member.Name;
+                columnsNames[i] = columns[i].GetExpressionName();
             return DatabaseController.Select<T>(table: TableName, columns: columnsNames);
         }
 

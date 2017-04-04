@@ -50,9 +50,9 @@ namespace SCSDB.Database.Core
 
     public class DatabaseController
     {
-        private static string[] ProblemColumnNames = new string[] { "to", "from" };
+        private static string[] ProblemColumnNames = new string[] { "to", "from", "not", "order", "group" };
         private static string[] Operators = new string[] { "=", "!=", ">", "<", ">=", "<=", "IN", "LIKE", "BETWEEN" };
-        private static string[] AfterOperators = new string[] { "AND", "OR" };
+        //private static string[] AfterOperators = new string[] { "AND", "OR" };
         private static string[] ValueTypeSizeList = new string[] { SqlDbType.Binary.ToString(), SqlDbType.Char.ToString(), SqlDbType.NChar.ToString(), SqlDbType.NVarChar.ToString(), SqlDbType.VarBinary.ToString(), SqlDbType.VarChar.ToString() };
         private static Dictionary<string, Type> TabelClasses = new Dictionary<string, Type>();
         private static string ConnectionString;
@@ -124,7 +124,7 @@ ALTER DATABASE [{0}] SET PAGE_VERIFY CHECKSUM
 ALTER DATABASE [{0}] SET DB_CHAINING OFF
 END
 ", databaseName, location);
-                    var result = ExecuteScalar(com);
+                    ExecuteScalar(com);
                 }
                 if (!System.Text.RegularExpressions.Regex.IsMatch(connectionString, "Initial Catalog=.*?;", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
                 {
@@ -494,63 +494,43 @@ END
             return InsertInto(table, values: SqlColumn.FromObject(data, includeNullValues, exclude).ToArray(), where: where);
         }
 
-        public static int InsertInto(string table, params SqlColumn[] values)
-        {
-            var command = "INSERT INTO " + table;
-            var parameters = new SqlColumn[values.Length];
-            if (values.Length > 0)
-            {
-                var tn = " (" + ControlProblemName(values[0].Name);
-                var vn = "(@" + values[0].Name;
-                parameters[0] = values[0].Clone("@" + values[0].Name);
-                for (int i = 1; i < values.Length; i++)
-                {
-                    tn += ", " + ControlProblemName(values[i].Name);
-                    vn += ", @" + values[i].Name;
-                    parameters[i] = values[i].Clone("@" + values[i].Name);
-                }
-                tn += ")";
-                vn += ")";
-                command += tn + " VALUES " + vn;
-            }
-            else
-            {
-                command += " DEFAULT VALUES";
-            }
-            command += "; SELECT CAST(scope_identity() AS int);";
-            return (int)ExecuteScalar(command, parameters: parameters);
-        }
-
         public static int InsertInto(string table, SqlColumn[] values, params SqlColumn[] where)
         {
-            int RowEffected;
-            if (Update(table, values, where, "AND", out RowEffected, false))
-            {
-                return -1;
-            }
-            else
-            {
-                return InsertInto(table, values: values);
-            }
+            //DECLARE @WHERE NVARCHAR(MAX) = '';
+            //DECLARE @TN NVARCHAR(MAX) = 'KullaniciUygulamaReferans';
+            //DECLARE @SIN NVARCHAR(MAX) = (select name from sys.columns where is_identity = 1 and object_name(object_id) = @TN);
+            //DECLARE @ETN NVARCHAR(MAX) = 'SELECT TOP(1)' + @SIN + ' FROM ' + @TN + @WHERE + ' ORDER BY ' + @SIN + ' DESC';
+            //exec sp_executesql @ETN
+            return InsertInto(table, null, values: values, where: where);
         }
 
         public static int InsertInto(string table, string idColmnName, SqlColumn[] values, params SqlColumn[] where)
         {
-            int RowEffected;
-            var id = UpdateGetID<int>(table, idColmnName, values, where, "AND", out RowEffected, false);
-            if (id > 0)
-            {
-                return id;
-            }
-            else
-            {
-                return InsertInto(table, values: values);
-            }
+            SqlColumn[] parameters = null;
+            var w = GetWhereString(where, "AND", ref parameters);
+            var v = GetUpdateString(values, ref parameters);
+            var i = GetInsertString(values, ref parameters);
+            var commandUpdate = "UPDATE " + table + v + w + "; SELECT " + (string.IsNullOrEmpty(idColmnName) ? "-1": "(SELECT TOP(1) " + idColmnName + " FROM " + table + w + " ORDER BY " + idColmnName + " DESC);");
+            var commandInsert = "INSERT INTO " + table + i + "SELECT CAST(scope_identity() AS int);";
+            var command =
+@"IF(SELECT TOP (1) 1 FROM " + table + w + @" ) = 1 BEGIN
+	" + commandUpdate + @"
+END ELSE BEGIN
+	" + commandInsert + @"
+END";
+            return (int)ExecuteScalar(command, parameters: parameters);
+        }
+
+        public static int InsertInto(string table, params SqlColumn[] values)
+        {
+            SqlColumn[] parameters = null;
+            var command = "INSERT INTO " + table + GetInsertString(values, ref parameters) + "SELECT CAST(scope_identity() AS int);";
+            return (int)ExecuteScalar(command, parameters: parameters);
         }
 
         public static bool Update(string table, SqlColumn[] values, SqlColumn[] where)
         {
-            int RowEffected;
+			int RowEffected;
             return Update(table, values, where, "AND", out RowEffected);
         }
 
@@ -562,32 +542,14 @@ END
 
         public static bool Update(string table, SqlColumn[] values, SqlColumn[] where, string AndOrOpt, out int RowEffected)
         {
-            return Update(table, values, where, AndOrOpt, out RowEffected, true);
-        }
-
-        public static bool Update(string table, SqlColumn[] values, SqlColumn[] where, string AndOrOpt, out int RowEffected, bool dispose)
-        {
             if (where == null || where.Length == 0) throw new Exception("Must have where value!");
             if (values == null || values.Length == 0) throw new Exception("Must have values!");
-            var parameters = new SqlColumn[where.Length + values.Length];
-            var w = GetWhereString(where, AndOrOpt, ref parameters, dispose);
-            var v = GetUpdateString(values, ref parameters, dispose);
+            SqlColumn[] parameters = null;
+            var w = GetWhereString(where, AndOrOpt, ref parameters);
+            var v = GetUpdateString(values, ref parameters);
             var command = "UPDATE " + table + v + w;
             RowEffected = ExecuteNonQuery(command, parameters);
             return RowEffected > 0;
-        }
-
-        public static T UpdateGetID<T>(string table, string idColmnName, SqlColumn[] values, SqlColumn[] where, string AndOrOpt, out int RowEffected, bool dispose)
-        {
-            if (where == null || where.Length == 0) throw new Exception("Must have where value!");
-            if (values == null || values.Length == 0) throw new Exception("Must have values!");
-            var parameters = new SqlColumn[where.Length + values.Length];
-            var w = GetWhereString(where, AndOrOpt, ref parameters, dispose);
-            var v = GetUpdateString(values, ref parameters, dispose);
-            var command = "UPDATE " + table + v + w + "; SELECT (SELECT " + idColmnName + " FROM " + table + w + "), @@ROWCOUNT";
-            var rows = ExecuteReader(command, parameters);
-            RowEffected = (int)rows.Rows[0][1];
-            return ConvertFromDBVal<T>(rows.Rows[0][0]);
         }
 
         ///
@@ -791,11 +753,12 @@ END
 
         private static void SetQueryToProcedure(string sqlCommand, SqlCommand command)
         {
+            if (!ConvertQueryToProcedure) return;
             try
             {
                 lock (QueryStrings)
                 {
-                    if (ConvertQueryToProcedure && !QueryStrings.ContainsKey(sqlCommand))
+                    if (!QueryStrings.ContainsKey(sqlCommand))
                     {
                         QueryStrings.Add(sqlCommand, new QueryStringInfo() { Query = SqlCommandDumper.GetCommandText(command), ExecuteCount = 1 });
                     }
@@ -1018,17 +981,10 @@ END
 
         public static string GetWhereString(SqlColumn[] where, string AndOrOpt, ref SqlColumn[] parameters)
         {
-            return GetWhereString(where, AndOrOpt, ref parameters, true);
-        }
-
-        public static string GetWhereString(SqlColumn[] where, string AndOrOpt, ref SqlColumn[] parameters, bool dispose)
-        {
             string w = "";
             if (where != null && where.Length > 0)
             {
-                if (parameters == null) parameters = new SqlColumn[where.Length];
-                else if (parameters.Length < where.Length) Array.Resize(ref parameters, where.Length);
-
+                var l = UpdateParametersArray(where, ref parameters);
                 var sw = new Dictionary<SqlColumn, string>();
                 var g = where.GroupBy(t => t.Name);
                 if (g.Any(t => t.Count() > 1))
@@ -1038,67 +994,88 @@ END
 
                 w = " WHERE ";
                 w += where[0].Name + " " + Operators[(int)where[0].Operator] + " " + GetOperatorValue(where[0].Operator, "@W_" + where[0].Name);
-                parameters[0] = where[0].Clone("@W_" + where[0].Name);
+                parameters[l] = where[0].Clone("@W_" + where[0].Name);
                 for (int i = 1; i < where.Length; i++)
                 {
                     w += " " + (where[i - 1].HasWhereOperator ? where[i - 1].WhereOperator.ToString() : AndOrOpt) + " " + where[i].Name + " " + Operators[(int)where[i].Operator] + " " + GetOperatorValue(where[i].Operator, "@W_" + (sw.ContainsKey(where[i]) ? sw[where[i]] + "_" : "") + where[i].Name);
-                    parameters[i] = where[i].Clone("@W_" + (sw.ContainsKey(where[i]) ? sw[where[i]] + "_" : "") + where[i].Name);
+                    parameters[l + i] = where[i].Clone("@W_" + (sw.ContainsKey(where[i]) ? sw[where[i]] + "_" : "") + where[i].Name);
                 }
             }
-            return w;
+            return w + " ";
+        }
+
+        public static string GetInsertString(SqlColumn[] values, ref SqlColumn[] parameters)
+        {
+            var command = " ";
+            if (values.Length > 0)
+            {
+                var l = UpdateParametersArray(values, ref parameters);
+                var tn = "(" + ControlProblemName(values[0].Name);
+                var vn = "(@VI_" + values[0].Name;
+                parameters[l] = values[0].Clone("@VI_" + values[0].Name);
+                for (int i = 1; i < values.Length; i++)
+                {
+                    tn += ", " + ControlProblemName(values[i].Name);
+                    vn += ", @VI_" + values[i].Name;
+                    parameters[l + i] = values[i].Clone("@VI_" + values[i].Name);
+                }
+                tn += ")";
+                vn += ")";
+                command += tn + " VALUES " + vn;
+            }
+            else
+            {
+                command += "DEFAULT VALUES";
+            }
+            return command + ";";
         }
 
         public static string GetUpdateString(SqlColumn[] values, ref SqlColumn[] parameters)
         {
-            return GetUpdateString(values, ref parameters, true);
-        }
-
-        public static string GetUpdateString(SqlColumn[] values, ref SqlColumn[] parameters, bool dispose)
-        {
-            string v = "";
+            string v = " ";
             if (values != null && values.Length > 0)
             {
-                var l = 0;
-                if (parameters == null)
-                    parameters = new SqlColumn[values.Length];
-                else
-                {
-                    for (int i = 0; i < parameters.Length; i++)
-                        if (parameters[i] == null)
-                        {
-                            l = i;
-                            break;
-                        }
-                }
-                if (parameters.Length < values.Length + l)
-                    Array.Resize(ref parameters, values.Length + l);
-
+                var l = UpdateParametersArray(values, ref parameters);
                 var g = values.GroupBy(t => t.Name);
                 if (g.Any(t => t.Count() > 1))
                     foreach (var item in g)
                         for (int i = 1; i < item.Count(); i++)
                             item.ElementAt(i).Name = i + "_" + item.Key;
 
-                v += " SET " + ControlProblemName(values[0].Name) + "=@V_" + values[0].Name;
-                parameters[l] = values[0].Clone("@V_" + values[0].Name);
-                //if (dispose) values[0].Dispose();
+                v += "SET " + ControlProblemName(values[0].Name) + "=@VU_" + values[0].Name;
+                parameters[l] = values[0].Clone("@VU_" + values[0].Name);
                 for (int i = 1; i < values.Length; i++)
                 {
-                    v += ", " + ControlProblemName(values[i].Name) + "=@V_" + values[i].Name;
-                    parameters[l + i] = values[i].Clone("@V_" + values[i].Name);
-                    //if (dispose) values[i].Dispose();
+                    v += ", " + ControlProblemName(values[i].Name) + "=@VU_" + values[i].Name;
+                    parameters[l + i] = values[i].Clone("@VU_" + values[i].Name);
                 }
             }
             else
             {
-                v += " DEFAULT VALUES ";
+                v += "DEFAULT VALUES";
             }
-            return v;
+            return v + " ";
+        }
+
+        private static int UpdateParametersArray(SqlColumn[] values, ref SqlColumn[] parameters)
+        {
+            int l = 0;
+            if (parameters == null)
+            {
+                parameters = new SqlColumn[values.Length];
+            }
+            else
+            {
+                l = parameters.Length;
+                if (parameters.Length < values.Length + l)
+                    Array.Resize(ref parameters, values.Length + l);
+            }
+            return l;
         }
 
         private static string ControlProblemName(string name)
         {
-            return ProblemColumnNames.Contains(name.ToLower()) ? "[" + name + "]" : name;
+            return ProblemColumnNames.Contains(name.ToLower(CultureInfo.InvariantCulture)) ? "[" + name + "]" : name;
         }
 
         private static string GetOperatorValue(SqlOperators opt, string name)

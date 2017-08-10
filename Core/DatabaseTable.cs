@@ -361,6 +361,11 @@ namespace SCSDB.Database.Core
             return DatabaseController.ReaderToList<T>(reader);
         }
 
+        public List<T> ReaderToList(DataTable reader)
+        {
+            return DatabaseController.ReaderToList<T>(reader);
+        }
+
         public Where<T, TField> Where<TField>(Expression<Func<T, TField>> field, TField value)
         {
             return new Where<T, TField>(field, value);

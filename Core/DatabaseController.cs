@@ -831,6 +831,12 @@ END";
             return result;
         }
 
+        public static T ReaderToScalar<T>(SqlDataReader datas)
+        {
+            if (!datas.Read()) return default(T);
+            return ConvertFromDBVal<T>(datas.GetValue(0));
+        }
+
         public static List<T> ReaderToList<T>(SqlDataReader datas)
             where T : new()
         {

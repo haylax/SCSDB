@@ -9,7 +9,8 @@
         GreaterEqual = 4,
         LessEqual = 5,
         In = 6,
-        Like = 7
+        Like = 7,
         //Between = 8,
+        //NotIn = 9,
     }
 }

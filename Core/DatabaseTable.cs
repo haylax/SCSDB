@@ -475,6 +475,16 @@ namespace SCSDB.Database.Core
             return DatabaseController.SelectFirst<T>(TableName, new SqlColumn(whereKey.GetExpressionName(), whereValue));
         }
 
+        public T SelectFirst<TField, TField2>(Expression<Func<T, TField>> whereKey, TField whereValue, Expression<Func<T, TField2>> whereKey2, TField2 whereValue2)
+        {
+            return DatabaseController.SelectFirst<T>(TableName, new SqlColumn(whereKey.GetExpressionName(), whereValue), new SqlColumn(whereKey2.GetExpressionName(), whereValue2));
+        }
+
+        public T SelectFirst<TField, TField2, TField3>(Expression<Func<T, TField>> whereKey, TField whereValue, Expression<Func<T, TField2>> whereKey2, TField2 whereValue2, Expression<Func<T, TField3>> whereKey3, TField3 whereValue3)
+        {
+            return DatabaseController.SelectFirst<T>(TableName, new SqlColumn(whereKey.GetExpressionName(), whereValue), new SqlColumn(whereKey2.GetExpressionName(), whereValue2), new SqlColumn(whereKey3.GetExpressionName(), whereValue3));
+        }
+
         public virtual TField SelectSingle<TField>(Expression<Func<T, TField>> column, params SqlColumn[] where)
         {
             return DatabaseController.SelectSingle<TField>(table: TableName, column: column.GetExpressionName(), where: where);
@@ -483,6 +493,16 @@ namespace SCSDB.Database.Core
         public virtual TField SelectSingle<TField>(Expression<Func<T, TField>> column, string columnNameOrderByDesc, params SqlColumn[] where)
         {
             return base.SelectSingle<TField>(column: column.GetExpressionName(), columnNameOrderByDesc: columnNameOrderByDesc, where: where);
+        }
+
+        public virtual bool HasRow<TField>(Expression<Func<T, TField>> field, TField value)
+        {
+            return DatabaseController.HasRow(TableName, new Where<T, TField>(field, value));
+        }
+
+        public virtual bool HasRow<TField, TField2>(Expression<Func<T, TField>> field, TField value, Expression<Func<T, TField2>> field2, TField2 value2)
+        {
+            return DatabaseController.HasRow(TableName, new Where<T, TField>(field, value), new Where<T, TField2>(field2, value2));
         }
 
         new public List<T> Select()
@@ -516,6 +536,11 @@ namespace SCSDB.Database.Core
         new public List<T> Select(string[] columns, SqlColumn[] where, string AndOrOpt = "AND")
         {
             return DatabaseController.Select<T>(TableName, columns, where, AndOrOpt);
+        }
+
+        public List<T> Select<TField>(Expression<Func<T, TField>> whereKey, TField whereValue)
+        {
+            return DatabaseController.Select<T>(TableName, new SqlColumn(whereKey.GetExpressionName(), whereValue));
         }
 
         public List<T> ExecuteList(string sqlCommand, params SqlColumn[] parameters)

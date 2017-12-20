@@ -55,7 +55,7 @@ namespace SCSDB.Database.Core
         //private static string[] AfterOperators = new string[] { "AND", "OR" };
         private static string[] ValueTypeSizeList = new string[] { SqlDbType.Binary.ToString(), SqlDbType.Char.ToString(), SqlDbType.NChar.ToString(), SqlDbType.NVarChar.ToString(), SqlDbType.VarBinary.ToString(), SqlDbType.VarChar.ToString() };
         private static Dictionary<string, Type> TabelClasses = new Dictionary<string, Type>();
-        private static string ConnectionString;
+        private static int _ConnectionTimeout = 15;
 
         public static bool ConvertQueryToProcedure = true;
 
@@ -151,6 +151,24 @@ END
         public static void Register(string connectionString, bool useSqlTabeleClass = true)
         {
             Register(connectionString, null, useSqlTabeleClass);
+        }
+
+
+        public static string ConnectionString { get; private set; }
+
+        public static int CommandTimeout { get; set; } = 30;
+
+        public static int ConnectionTimeout
+        {
+            get { return _ConnectionTimeout; }
+            set
+            {
+                if (_ConnectionTimeout == value) return;
+                _ConnectionTimeout = value;
+                ConnectionString = System.Text.RegularExpressions.Regex.Replace(ConnectionString, @"Connection Timeout=\d+;?", "");
+                if (!ConnectionString.EndsWith(";")) ConnectionString += ";";
+                ConnectionString += "Connection Timeout=" + value + ";";
+            }
         }
 
         public static T SelectSingle<T>(string table, string column, params SqlColumn[] where)
@@ -574,6 +592,7 @@ END";
             using (SqlCommand command = new SqlCommand(sqlCommand, con))
             {
                 con.Open();
+                command.CommandTimeout = CommandTimeout;
                 SetCommandParameters(command, parameters);
                 result = command.ExecuteScalar();
             }
@@ -659,6 +678,7 @@ END";
                 using (SqlCommand command = new SqlCommand(sqlCommand, con))
                 {
                     con.Open();
+                    command.CommandTimeout = CommandTimeout;
                     SetCommandParameters(command, parameters);
                     var reader = command.ExecuteReader();
                     return reader.GetDataTable();
@@ -669,6 +689,7 @@ END";
                 SqlConnection con = new SqlConnection(ConnectionString);
                 SqlCommand command = new SqlCommand(sqlCommand, con);
                 con.Open();
+                command.CommandTimeout = CommandTimeout;
                 SetCommandParameters(command, parameters);
                 return new DisReader(command.ExecuteReader(), () =>
                 {
@@ -720,6 +741,7 @@ END";
             using (SqlCommand command = new SqlCommand(sqlCommand, con))
             {
                 con.Open();
+                command.CommandTimeout = CommandTimeout;
                 command.CommandType = type;
                 SetCommandParameters(command, parameters);
                 result = command.ExecuteNonQuery();

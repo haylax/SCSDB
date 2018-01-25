@@ -50,7 +50,7 @@ namespace SCSDB.Database.Core
 
     public class DatabaseController
     {
-        private static string[] ProblemColumnNames = new string[] { "to", "from", "not", "order", "group" };
+        private static string[] ProblemColumnNames = new string[] { "to", "from", "not", "order", "group", "desc" };
         private static string[] Operators = new string[] { "=", "!=", ">", "<", ">=", "<=", "IN", "LIKE", "BETWEEN" };
         //private static string[] AfterOperators = new string[] { "AND", "OR" };
         private static string[] ValueTypeSizeList = new string[] { SqlDbType.Binary.ToString(), SqlDbType.Char.ToString(), SqlDbType.NChar.ToString(), SqlDbType.NVarChar.ToString(), SqlDbType.VarBinary.ToString(), SqlDbType.VarChar.ToString() };
@@ -528,7 +528,7 @@ END
             var w = GetWhereString(where, "AND", ref parameters);
             var v = GetUpdateString(values, ref parameters);
             var i = GetInsertString(values, ref parameters);
-            var commandUpdate = "UPDATE " + table + v + w + "; SELECT " + (string.IsNullOrEmpty(idColmnName) ? "-1": "(SELECT TOP(1) " + idColmnName + " FROM " + table + w + " ORDER BY " + idColmnName + " DESC);");
+            var commandUpdate = "UPDATE " + table + v + w + "; SELECT " + (string.IsNullOrEmpty(idColmnName) ? "-1" : "(SELECT TOP(1) " + idColmnName + " FROM " + table + w + " ORDER BY " + idColmnName + " DESC);");
             var commandInsert = "INSERT INTO " + table + i + "SELECT CAST(scope_identity() AS int);";
             var command =
 @"IF(SELECT TOP (1) 1 FROM " + table + w + @" ) = 1 BEGIN
@@ -548,7 +548,7 @@ END";
 
         public static bool Update(string table, SqlColumn[] values, SqlColumn[] where)
         {
-			int RowEffected;
+            int RowEffected;
             return Update(table, values, where, "AND", out RowEffected);
         }
 
@@ -759,6 +759,10 @@ END";
                     {
                         command.Parameters.AddWithValue(val.Name, string.Join(",", val.Value as IEnumerable<int>));
                     }
+                    else if (val.Value as IEnumerable<string> != null)
+                    {
+                        command.Parameters.AddWithValue(val.Name, string.Join(",", val.Value as IEnumerable<string>));
+                    }
                     else if (val.HasValueType)
                     {
                         var p = new SqlParameter(val.Name, val.Value);
@@ -876,7 +880,7 @@ END";
         {
             List<T> result = null;
             if (reader == null || reader.IsClosed) return null;
-            IEnumerable<MemberInfo> infos = null;
+            Dictionary<string, MemberInfo> infos = null;
             bool isKeyValuePair = false;
             Type pairValueType = null;
             while (reader.Read())
@@ -891,7 +895,7 @@ END";
                     }
                     else
                     {
-                        infos = ty.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.SetField | BindingFlags.SetProperty);//.Where(a => a.MemberType == MemberTypes.Field || (a.MemberType == MemberTypes.Property && (a as PropertyInfo).CanWrite));
+                        infos = ty.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.SetField | BindingFlags.SetProperty).GroupBy(t => t.Name).ToDictionary(t => t.Key.ToLowerInvariant(), t => t.FirstOrDefault());
                         if (infos.Count() == 0) return null;
                     }
                     result = new List<T>();
@@ -900,7 +904,7 @@ END";
                 var count = reader.FieldCount;
                 for (int i = 0; i < count; i++)
                 {
-                    var fName = reader.GetName(i);
+                    string fName = reader.GetName(i);
                     if (isKeyValuePair)
                     {
                         var v = reader.GetValue(i);
@@ -908,8 +912,8 @@ END";
                     }
                     else
                     {
-                        var n = infos.FirstOrDefault(t => t.Name.Equals(fName, StringComparison.OrdinalIgnoreCase));
-                        if (n != null)
+                        MemberInfo n = null;
+                        if (infos.TryGetValue(fName.ToLowerInvariant(), out n) && n != null)
                         {
                             var v = reader.GetValue(i);
                             var f = n as FieldInfo;
@@ -1103,7 +1107,7 @@ END";
 
         private static string ControlProblemName(string name)
         {
-            return ProblemColumnNames.Contains(name.ToLower(CultureInfo.InvariantCulture)) ? "[" + name + "]" : name;
+            return ProblemColumnNames.Contains(name.ToLowerInvariant()) ? "[" + name + "]" : name;
         }
 
         private static string GetOperatorValue(SqlOperators opt, string name)

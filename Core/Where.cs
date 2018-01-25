@@ -27,6 +27,11 @@ namespace SCSDB.Database.Core
             : base((field.Body as MemberExpression).Member.Name, value)
         {
         }
+
+        public Where(Expression<Func<T, TField>> field, IEnumerable<string> value)
+            : base((field.Body as MemberExpression).Member.Name, value)
+        {
+        }
     }
 
     public class Where : SqlColumn
@@ -45,6 +50,10 @@ namespace SCSDB.Database.Core
         {
         }
 
+        public Where(string name, IEnumerable<string> value)
+           : base(name, value)
+        {
+        }
 
         public Where(string name, params int[] value)
             : base(name, value: value)

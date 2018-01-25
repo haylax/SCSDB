@@ -510,6 +510,16 @@ namespace SCSDB.Database.Core
             return DatabaseController.Select<T>(TableName);
         }
 
+        public List<T> Select(WhereEqDict<T> where)
+        {
+            return DatabaseController.Select<T>(TableName, where: where.GetWhere());
+        }
+
+        public List<T> Select(WhereDict<T> where)
+        {
+            return DatabaseController.Select<T>(TableName, where: where.GetWhere());
+        }
+
         new public List<T> Select(params SqlColumn[] where)
         {
             return DatabaseController.Select<T>(table: TableName, where: where);
@@ -611,6 +621,40 @@ namespace SCSDB.Database.Core
         public bool Update(T data, bool includeNullValues, string[] exclude, SqlColumn[] where, string AndOrOpt, out int RowEffected)
         {
             return DatabaseController.Update(TableName, SqlColumn.FromObject(data, includeNullValues, exclude).ToArray(), where, AndOrOpt, out RowEffected);
+        }
+    }
+
+    public class WhereEqDict<T> : Dictionary<Expression<Func<T, object>>, object>
+    {
+        public SqlColumn[] GetWhere()
+        {
+            return this.Select(t => new SqlColumn(t.Key.GetExpressionName(), t.Value)).ToArray();
+        }
+    }
+
+    public class WhereDict<T> : Dictionary<Expression<Func<T, object>>, DictCont>
+    {
+        public SqlColumn[] GetWhere()
+        {
+            return this.Select(t => new SqlColumn(t.Key.GetExpressionName(), t.Value.Operator, t.Value.Value)).ToArray();
+        }
+    }
+
+    public class DictCont
+    {
+        public object Value { get; set; }
+        public SqlOperators Operator { get; set; }
+
+        public DictCont(SqlOperators Operator, object Value)
+        {
+            this.Value = Value;
+            this.Operator = Operator;
+        }
+
+        public DictCont(object Value)
+        {
+            this.Value = Value;
+            Operator = SqlOperators.Equal;
         }
     }
 }

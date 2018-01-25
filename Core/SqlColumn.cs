@@ -1,5 +1,6 @@
 ﻿using SCSDB.Database.Enums;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -166,7 +167,6 @@ namespace SCSDB.Database.Core
             }
         }
 
-
         public bool HasWhereOperator { get; private set; }
 
         public SqlWhereOperators WhereOperator
@@ -189,11 +189,26 @@ namespace SCSDB.Database.Core
         {
         }
 
-
         public SqlColumn(string name, object value)
         {
             Name = name;
             Value = value;
+            if (value is IEnumerable<string> || value is IEnumerable<int>)
+                Operator = SqlOperators.In;
+        }
+
+        public SqlColumn(string name, IEnumerable<string> value)
+        {
+            Name = name;
+            Value = value;
+            Operator = SqlOperators.In;
+        }
+
+        public SqlColumn(string name, params string[] value)
+        {
+            Name = name;
+            Value = value;
+            Operator = SqlOperators.In;
         }
 
         public SqlColumn(string name, IEnumerable<int> value)
@@ -296,7 +311,7 @@ namespace SCSDB.Database.Core
 
         public override string ToString()
         {
-            return "Name: " + Name + (HasOperator ? ", Opr: " + Operator.ToString() : "") + ", Value: " + (Value is IEnumerable<int> ? "[" + string.Join(",", Value as IEnumerable<int>) + "]" : Convert.ToString(Value));
+            return "Name: " + Name + (HasOperator ? ", Opr: " + Operator.ToString() : "") + ", Value: " + (Value is IEnumerable ? "[" + string.Join(",", Value as IEnumerable) + "]" : Convert.ToString(Value));
         }
 
         bool disposed = false;

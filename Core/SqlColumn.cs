@@ -193,12 +193,18 @@ namespace SCSDB.Database.Core
         {
             Name = name;
             Value = value;
-            if (value is IEnumerable<string> || value is IEnumerable<int>)
+            var a = value as IEnumerable<string>;
+            var b = value as IEnumerable<int>;
+            if (a != null || b != null)
+            {
+                if ((a != null && !a.Any()) || (b != null && !b.Any())) throw new Exception("Mush have any value in array!");
                 Operator = SqlOperators.In;
+            }
         }
 
         public SqlColumn(string name, IEnumerable<string> value)
         {
+            if (!value.Any()) throw new Exception("Mush have any value in array!");
             Name = name;
             Value = value;
             Operator = SqlOperators.In;
@@ -206,6 +212,7 @@ namespace SCSDB.Database.Core
 
         public SqlColumn(string name, params string[] value)
         {
+            if (!value.Any()) throw new Exception("Mush have any value in array!");
             Name = name;
             Value = value;
             Operator = SqlOperators.In;
@@ -213,6 +220,7 @@ namespace SCSDB.Database.Core
 
         public SqlColumn(string name, IEnumerable<int> value)
         {
+            if (!value.Any()) throw new Exception("Mush have any value in array!");
             Name = name;
             Value = value;
             Operator = SqlOperators.In;
@@ -220,6 +228,7 @@ namespace SCSDB.Database.Core
 
         public SqlColumn(string name, params int[] value)
         {
+            if (!value.Any()) throw new Exception("Mush have any value in array!");
             Name = name;
             Value = value;
             Operator = SqlOperators.In;
@@ -307,6 +316,22 @@ namespace SCSDB.Database.Core
                 return new SqlColumn(name, Operator, Value, WhereOperator);
             else
                 return new SqlColumn(name, Operator, Value);
+        }
+
+        public List<SqlColumn> OperatorGroup = new List<SqlColumn>();
+
+        public static SqlColumn operator &(SqlColumn lhs, SqlColumn rhs)
+        {
+            lhs.OperatorGroup.Add(rhs);
+            rhs.WhereOperator = SqlWhereOperators.AND;
+            return lhs;
+        }
+
+        public static SqlColumn operator |(SqlColumn lhs, SqlColumn rhs)
+        {
+            lhs.OperatorGroup.Add(rhs);
+            rhs.WhereOperator = SqlWhereOperators.OR;
+            return lhs;
         }
 
         public override string ToString()

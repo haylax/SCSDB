@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Data.SqlClient;
-using System.Globalization;
 using System.Linq;
 using System.Reflection;
 
@@ -645,7 +644,7 @@ END";
         ///     requires an open System.Data.SqlClient.SqlConnection.
         public static DataTable ExecuteReader(string sqlCommand, params SqlColumn[] parameters)
         {
-            return ExecuteReader(sqlCommand, true, parameters);
+            return ExecuteReader(sqlCommand, true, CommandType.Text, parameters);
         }
 
         ///
@@ -667,10 +666,20 @@ END";
         ///     requires an open System.Data.SqlClient.SqlConnection.
         public static DisReader ExecuteReaderForMulti(string sqlCommand, params SqlColumn[] parameters)
         {
-            return ExecuteReader(sqlCommand, false, parameters);
+            return ExecuteReader(sqlCommand, false, CommandType.Text, parameters);
         }
 
-        private static dynamic ExecuteReader(string sqlCommand, bool readerAsDataTable, SqlColumn[] parameters)
+        public static DataTable ExecuteReader(string sqlCommand, CommandType commandType, params SqlColumn[] parameters)
+        {
+            return ExecuteReader(sqlCommand, true, commandType, parameters);
+        }
+
+        public static DisReader ExecuteReaderForMulti(string sqlCommand, CommandType commandType, params SqlColumn[] parameters)
+        {
+            return ExecuteReader(sqlCommand, false, commandType, parameters);
+        }
+
+        private static dynamic ExecuteReader(string sqlCommand, bool readerAsDataTable, CommandType commandType, SqlColumn[] parameters)
         {
             if (readerAsDataTable)
             {
@@ -679,6 +688,7 @@ END";
                 {
                     con.Open();
                     command.CommandTimeout = CommandTimeout;
+                    command.CommandType = commandType;
                     SetCommandParameters(command, parameters);
                     var reader = command.ExecuteReader();
                     return reader.GetDataTable();
@@ -690,6 +700,7 @@ END";
                 SqlCommand command = new SqlCommand(sqlCommand, con);
                 con.Open();
                 command.CommandTimeout = CommandTimeout;
+                command.CommandType = commandType;
                 SetCommandParameters(command, parameters);
                 return new DisReader(command.ExecuteReader(), () =>
                 {
@@ -755,6 +766,7 @@ END";
             {
                 foreach (var val in parameters)
                 {
+                    if (val == null) continue;
                     if (val.Value as IEnumerable<int> != null)
                     {
                         command.Parameters.AddWithValue(val.Name, string.Join(",", val.Value as IEnumerable<int>));
@@ -1014,6 +1026,7 @@ END";
         public static string GetWhereString(SqlColumn[] where, string AndOrOpt, ref SqlColumn[] parameters)
         {
             string w = "";
+            int i = 0;
             if (where != null && where.Length > 0)
             {
                 var l = UpdateParametersArray(where, ref parameters);
@@ -1021,17 +1034,39 @@ END";
                 var g = where.GroupBy(t => t.Name);
                 if (g.Any(t => t.Count() > 1))
                     foreach (var item in g)
-                        for (int i = 1; i < item.Count(); i++)
+                        for (i = 1; i < item.Count(); i++)
                             sw.Add(item.ElementAt(i), i.ToString());
-
+                bool needParam = true;
                 w = " WHERE ";
-                w += where[0].Name + " " + Operators[(int)where[0].Operator] + " " + GetOperatorValue(where[0].Operator, "@W_" + where[0].Name);
-                parameters[l] = where[0].Clone("@W_" + where[0].Name);
-                for (int i = 1; i < where.Length; i++)
+                i = 0;
+                var gr = where.GroupBy(t => t.Group).ToArray();
+                for (int ig = 0; ig < gr.Length; ig++)
                 {
-                    w += " " + (where[i - 1].HasWhereOperator ? where[i - 1].WhereOperator.ToString() : AndOrOpt) + " " + where[i].Name + " " + Operators[(int)where[i].Operator] + " " + GetOperatorValue(where[i].Operator, "@W_" + (sw.ContainsKey(where[i]) ? sw[where[i]] + "_" : "") + where[i].Name);
-                    parameters[l + i] = where[i].Clone("@W_" + (sw.ContainsKey(where[i]) ? sw[where[i]] + "_" : "") + where[i].Name);
+                    var grc = gr[ig].ToArray();
+                    if (ig > 0)
+                        w += " " + (grc.First().HasWhereOperator ? grc.First().WhereOperator.ToString() : AndOrOpt) + " ";
+                    w += "(";
+                    for (int igc = 0; igc < grc.Length; igc++)
+                    {
+                        var item = grc[igc];
+                        if (igc > 0)
+                            w +=  " " + (item.HasWhereOperator ? item.WhereOperator.ToString() : AndOrOpt) + " ";
+                        var wl = (sw.ContainsKey(item) ? sw[item] + "_" : "");
+                        w += item.Name + " " + Operators[(int)item.Operator] + " " + GetOperatorValue(item.Operator, "@W_" + wl + item.Name, item.Value, out needParam);
+                        if (needParam) parameters[l + i] = item.Clone("@W_" + wl + item.Name);
+                        i++;
+                    }
+                    w += ")";
                 }
+                //w += where[0].Name + " " + Operators[(int)where[0].Operator] + " " + GetOperatorValue(where[0].Operator, "@W_" + where[0].Name, where[0].Value, out needParam);
+                //if (needParam)
+                //    parameters[l] = where[0].Clone("@W_" + where[0].Name);
+                //for (i = 1; i < where.Length; i++)
+                //{
+                //    w += " " + (where[i - 1].HasWhereOperator ? where[i - 1].WhereOperator.ToString() : AndOrOpt) + " " + where[i].Name + " " + Operators[(int)where[i].Operator] + " " + GetOperatorValue(where[i].Operator, "@W_" + (sw.ContainsKey(where[i]) ? sw[where[i]] + "_" : "") + where[i].Name, where[i].Value, out needParam);
+                //    if (needParam)
+                //        parameters[l + i] = where[i].Clone("@W_" + (sw.ContainsKey(where[i]) ? sw[where[i]] + "_" : "") + where[i].Name);
+                //}
             }
             return w + " ";
         }
@@ -1110,8 +1145,9 @@ END";
             return ProblemColumnNames.Contains(name.ToLowerInvariant()) ? "[" + name + "]" : name;
         }
 
-        private static string GetOperatorValue(SqlOperators opt, string name)
+        private static string GetOperatorValue(SqlOperators opt, string name, object param, out bool needParameter)
         {
+            needParameter = true;
             switch (opt)
             {
                 case SqlOperators.Equal:
@@ -1123,7 +1159,23 @@ END";
                 default:
                     return name;
                 case SqlOperators.In:
-                    return "(SELECT * FROM Split(',', " + name + "))";
+                    if (param is IEnumerable<int>)
+                    {
+                        needParameter = false;
+                        if (!(param as IEnumerable<int>).Any()) throw new Exception("Mush have any value in array!");
+                        return "(" + string.Join(",", (param as IEnumerable<int>)) + ")";
+                    }
+                    else if (param is IEnumerable<string>)
+                    {
+                        needParameter = false;
+                        if (!(param as IEnumerable<string>).Any()) throw new Exception("Mush have any value in array!");
+                        //TODO:Injection!!
+                        return "('" + string.Join("','", (param as IEnumerable<string>).Where(t => t != null)) + "')";
+                    }
+                    else
+                    {
+                        return "(SELECT * FROM Split(',', " + name + "))";
+                    }
                 case SqlOperators.Like:
                     return "'%'+" + name + "+'%'";
             }

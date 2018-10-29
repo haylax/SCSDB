@@ -74,12 +74,12 @@ namespace SCSDB.Database.Core
 
         public static List<SqlColumn> FromObject(object target, params string[] exclude)
         {
-            return FromObject(target, false, exclude);
+            return FromObject(target, true, exclude);
         }
 
         public static List<SqlColumn> FromObject(object target)
         {
-            return FromObject(target, false, null);
+            return FromObject(target, true, null);
         }
 
         public static List<SqlColumn> FromObject(object target, bool includeNullValues, string[] exclude)
@@ -204,7 +204,7 @@ namespace SCSDB.Database.Core
 
         public SqlColumn(string name, IEnumerable<string> value)
         {
-            if (!value.Any()) throw new Exception("Mush have any value in array!");
+            if (value != null && !value.Any()) throw new Exception("Mush have any value in array!");
             Name = name;
             Value = value;
             Operator = SqlOperators.In;
@@ -212,7 +212,7 @@ namespace SCSDB.Database.Core
 
         public SqlColumn(string name, params string[] value)
         {
-            if (!value.Any()) throw new Exception("Mush have any value in array!");
+            if (value != null && !value.Any()) throw new Exception("Mush have any value in array!");
             Name = name;
             Value = value;
             Operator = SqlOperators.In;
@@ -220,7 +220,7 @@ namespace SCSDB.Database.Core
 
         public SqlColumn(string name, IEnumerable<int> value)
         {
-            if (!value.Any()) throw new Exception("Mush have any value in array!");
+            if (value != null && !value.Any()) throw new Exception("Mush have any value in array!");
             Name = name;
             Value = value;
             Operator = SqlOperators.In;

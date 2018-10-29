@@ -229,7 +229,7 @@ namespace SCSDB.Database.Core
 
         public virtual int InsertInto<T>(T data, params string[] exclude)
         {
-            return DatabaseController.InsertInto(TableName, values: SqlColumn.FromObject(data, false, exclude).ToArray());
+            return DatabaseController.InsertInto(TableName, values: SqlColumn.FromObject(data, true, exclude).ToArray());
         }
 
         public virtual int InsertInto<T>(T data, bool includeNullValues, string[] exclude)
@@ -244,7 +244,7 @@ namespace SCSDB.Database.Core
 
         public virtual int InsertInto<T>(T data, string[] exclude, params SqlColumn[] where)
         {
-            return DatabaseController.InsertInto(table: TableName, values: SqlColumn.FromObject(data, false, exclude).ToArray(), where: where);
+            return DatabaseController.InsertInto(table: TableName, values: SqlColumn.FromObject(data, true, exclude).ToArray(), where: where);
         }
 
         public virtual int InsertInto<T>(T data, bool includeNullValues, string[] exclude, SqlColumn[] where)
@@ -264,7 +264,7 @@ namespace SCSDB.Database.Core
 
         public virtual int InsertInto(object data, params string[] exclude)
         {
-            return DatabaseController.InsertInto(TableName, values: SqlColumn.FromObject(data, false, exclude).ToArray());
+            return DatabaseController.InsertInto(TableName, values: SqlColumn.FromObject(data, true, exclude).ToArray());
         }
 
         public virtual int InsertInto(object data, bool includeNullValues, string[] exclude)
@@ -279,7 +279,7 @@ namespace SCSDB.Database.Core
 
         public virtual int InsertInto(object data, string[] exclude, params SqlColumn[] where)
         {
-            return DatabaseController.InsertInto(table: TableName, values: SqlColumn.FromObject(data, false, exclude).ToArray(), where: where);
+            return DatabaseController.InsertInto(table: TableName, values: SqlColumn.FromObject(data, true, exclude).ToArray(), where: where);
         }
 
         public virtual int InsertInto(object data, bool includeNullValues, string[] exclude, SqlColumn[] where)
@@ -420,6 +420,11 @@ namespace SCSDB.Database.Core
             return DatabaseController.SelectLast<T>(table: TableName, orderColumnName: orderColumnName.GetExpressionName(), columns: columns, where: where);
         }
 
+        public T SelectLast<TField, TField2>(Expression<Func<T, TField>> orderColumnName, Expression<Func<T, TField2>> whereKey, TField2 whereValue)
+        {
+            return DatabaseController.SelectLast<T>(TableName, orderColumnName.GetExpressionName(), new SqlColumn(whereKey.GetExpressionName(), whereValue));
+        }
+
         public T SelectLast(string orderColumnName)
         {
             return DatabaseController.SelectLast<T>(TableName, orderColumnName);
@@ -438,6 +443,11 @@ namespace SCSDB.Database.Core
         public T SelectLast(string orderColumnName, string[] columns, SqlColumn[] where, string AndOrOpt = "AND")
         {
             return DatabaseController.SelectLast<T>(table: TableName, orderColumnName: orderColumnName, columns: columns, where: where);
+        }
+
+        public T SelectLast<TField>(string orderColumnName, Expression<Func<T, TField>> whereKey, TField whereValue)
+        {
+            return DatabaseController.SelectLast<T>(TableName, orderColumnName, new SqlColumn(whereKey.GetExpressionName(), whereValue));
         }
 
         public T SelectFirst()
@@ -565,7 +575,7 @@ namespace SCSDB.Database.Core
 
         public int InsertInto(T data, params string[] exclude)
         {
-            return DatabaseController.InsertInto(TableName, values: SqlColumn.FromObject(data, false, exclude).ToArray());
+            return DatabaseController.InsertInto(TableName, values: SqlColumn.FromObject(data, true, exclude).ToArray());
         }
 
         public int InsertInto(T data, bool includeNullValues, string[] exclude)
@@ -580,7 +590,7 @@ namespace SCSDB.Database.Core
 
         public int InsertInto(T data, string[] exclude, params SqlColumn[] where)
         {
-            return DatabaseController.InsertInto(table: TableName, values: SqlColumn.FromObject(data, false, exclude).ToArray(), where: where);
+            return DatabaseController.InsertInto(table: TableName, values: SqlColumn.FromObject(data, true, exclude).ToArray(), where: where);
         }
 
         public int InsertInto(T data, bool includeNullValues, string[] exclude, params SqlColumn[] where)
